@@ -48,13 +48,19 @@ afterEach(() => {
 });
 
 describe('Alazab agent mail MCP', () => {
-  it('exposes only the narrow employee-mail surface', async () => {
+  it('exposes only the narrow employee-mail surface with Foundry-compatible schemas', async () => {
     const {client, close} = await connect();
-    const names = (await client.listTools()).tools.map((tool) => tool.name);
+    const tools = (await client.listTools()).tools;
+    const names = tools.map((tool) => tool.name);
 
     expect(names).toEqual(['az_mail_identity', 'az_mail_verify_recipient', 'az_mail_send_email']);
     expect(names).not.toContain('plunk_send_campaign');
     expect(names).not.toContain('plunk_delete_contact');
+
+    const sendTool = tools.find((tool) => tool.name === 'az_mail_send_email');
+    const schema = JSON.stringify(sendTool?.inputSchema);
+    expect(schema).not.toContain('anyOf');
+    expect(schema).not.toContain('allOf');
 
     await close();
   });
@@ -69,7 +75,7 @@ describe('Alazab agent mail MCP', () => {
     await close();
   });
 
-  it('forces the finance sender even if a caller tries to inject another from address', async () => {
+  it('forces the finance sender and exposes no from field in the tool input', async () => {
     let sentBody: Record<string, unknown> | undefined;
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
@@ -87,10 +93,9 @@ describe('Alazab agent mail MCP', () => {
     const result = await client.callTool({
       name: 'az_mail_send_email',
       arguments: {
-        to: 'vendor@example.com',
+        to: [{email: 'vendor@example.com', name: 'Vendor'}],
         subject: 'Invoice review',
         body: '<p>Please review.</p>',
-        from: {name: 'Payments', email: 'payments@agents.alazab.com'},
       },
     });
 

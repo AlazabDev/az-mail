@@ -4,13 +4,10 @@ import type {AgentMailboxIdentity} from '../agentIdentity.js';
 import type {PlunkClient} from '../client.js';
 import {jsonResult, register, runTool, type ToolContext} from './shared.js';
 
-const recipient = z.union([
-  z.string().email().describe('Recipient email address'),
-  z.object({
-    name: z.string().min(1).max(200).optional().describe('Recipient display name'),
-    email: z.string().email().describe('Recipient email address'),
-  }),
-]);
+const recipient = z.object({
+  name: z.string().min(1).max(200).optional().describe('Recipient display name'),
+  email: z.string().email().describe('Recipient email address'),
+});
 
 const attachment = z.object({
   filename: z.string().min(1).max(255).describe('Attachment filename'),
@@ -69,8 +66,10 @@ export function registerAgentEmailTools(ctx: ToolContext, client: PlunkClient, i
       ].join('\n'),
       inputSchema: z.object({
         to: z
-          .union([recipient, z.array(recipient).min(1).max(10)])
-          .describe('One recipient or up to 10 named recipients.'),
+          .array(recipient)
+          .min(1)
+          .max(10)
+          .describe('Recipients. Always pass an array of objects shaped as {email, name?}.'),
         subject: z
           .string()
           .min(1)
