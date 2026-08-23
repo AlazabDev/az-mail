@@ -1,14 +1,17 @@
 /**
  * Builds the Plunk MCP server.
  *
- * Kept separate from the stdio entry point so the same builder serves the
- * future HTTP transport and the in-process tests without modification.
+ * Kept separate from the stdio entry point so the same builder serves both the
+ * 2026-07-28 revision and older 2025-era clients, so one binary works across the
+ * whole client ecosystem.
  */
 
 import {McpServer} from '@modelcontextprotocol/server';
 
+import type {AgentMailboxIdentity} from './agentIdentity.js';
 import {PlunkClient} from './client.js';
 import type {PlunkMcpConfig} from './config.js';
+import {registerAgentEmailTools} from './tools/agentEmail.js';
 import {registerCampaignTools} from './tools/campaigns.js';
 import {registerContactTools} from './tools/contacts.js';
 import {registerDomainTools} from './tools/domains.js';
@@ -19,6 +22,7 @@ import {registerTemplateTools} from './tools/templates.js';
 import type {ToolContext} from './tools/shared.js';
 
 export const SERVER_NAME = 'plunk';
+export const AGENT_SERVER_NAME = 'az-mail-agent';
 export const SERVER_VERSION = '0.14.0';
 
 const INSTRUCTIONS = [
@@ -61,6 +65,34 @@ export function buildServer(config: PlunkMcpConfig): McpServer {
   registerCampaignTools(ctx, client);
   registerSegmentTools(ctx, client);
   registerDomainTools(ctx, client);
+
+  return server;
+}
+
+/**
+ * Narrow MCP surface for autonomous Alazab employees/agents.
+ *
+ * Unlike the general Plunk server, this server exposes only direct-mail tools.
+ * Sender identity is injected from an authenticated server-side mailbox record,
+ * so the agent cannot choose another agent's From address.
+ */
+export function buildAgentServer(config: PlunkMcpConfig, identity: AgentMailboxIdentity): McpServer {
+  const instructions = [
+    `You are authenticated as ${identity.displayName} (${identity.id}).`,
+    `Your fixed email identity is ${identity.email} and replies are directed to ${identity.replyTo}.`,
+    'Never claim to send from another address. The server enforces your mailbox identity.',
+    'Use az_mail_verify_recipient when an address is uncertain.',
+    'Use az_mail_send_email for direct operational correspondence only, not bulk marketing campaigns.',
+  ].join('\n');
+
+  const server = new McpServer(
+    {name: `${AGENT_SERVER_NAME}:${identity.id}`, version: SERVER_VERSION},
+    {capabilities: {tools: {}}, instructions},
+  );
+
+  const client = new PlunkClient(config);
+  const ctx: ToolContext = {server, readOnly: false};
+  registerAgentEmailTools(ctx, client, identity);
 
   return server;
 }

@@ -6,16 +6,19 @@
   "type": "module",
   "mcpName": "com.useplunk/plunk",
   "bin": {
-    "plunk-mcp": "./dist/index.js"
+    "plunk-mcp": "./dist/index.js",
+    "az-mail-mcp-http": "./dist/http.js"
   },
   "main": "./dist/server.js",
   "exports": {
     ".": "./dist/server.js",
-    "./stdio": "./dist/index.js"
+    "./stdio": "./dist/index.js",
+    "./http": "./dist/http.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "AGENT_MAIL.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -35,11 +38,12 @@
   ],
   "scripts": {
     "build": "tsc",
+    "serve:agent-http": "node dist/http.js",
     "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
     "lint": "eslint .",
     "clean": "rimraf node_modules dist .turbo"
   },
-  "//scripts": "No `dev` or `start` script on purpose: turbo runs those across every workspace, and an stdio MCP server is spawned by the MCP client rather than run as a long-lived dev service. Adding them would make `yarn dev` try to start this and fail without an API key. Use `yarn workspace @plunk/mcp inspect` to drive it locally.",
+  "//scripts": "No root dev/start script: stdio MCP is spawned by the client. Use serve:agent-http for the authenticated Alazab Microsoft Foundry remote MCP endpoint.",
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
     "zod": "^4.2.0"
